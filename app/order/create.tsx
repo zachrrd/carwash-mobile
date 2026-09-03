@@ -44,8 +44,6 @@ type OrderItemForm = {
 
 const formatRupiah = (value: number) => `Rp ${value.toLocaleString("id-ID")}`;
 
-const statuses: OrderStatus[] = ["Waiting", "Washing", "Completed"];
-
 export default function CreateOrderScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -61,7 +59,6 @@ export default function CreateOrderScreen() {
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [vehicleId, setVehicleId] = useState<number | null>(null);
   const [staffId, setStaffId] = useState<number | null>(null);
-  const [serviceStatus, setServiceStatus] = useState<OrderStatus>("Waiting");
   const [checkInTime, setCheckInTime] = useState("");
   const [items, setItems] = useState<OrderItemForm[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState("");
@@ -108,12 +105,24 @@ export default function CreateOrderScreen() {
   }, [vehicles, customerId]);
 
   const activeStaffs = useMemo(
-    () => staffs.filter((s) => s.status === "Active" || !s.status),
+    () =>
+      staffs.filter(
+        (s) =>
+          !s.status ||
+          s.status.toUpperCase() === "ACTIVE" ||
+          s.status === "Active",
+      ),
     [staffs],
   );
 
   const activeServices = useMemo(
-    () => services.filter((s) => s.status === "Active" || !s.status),
+    () =>
+      services.filter(
+        (s) =>
+          !s.status ||
+          s.status.toUpperCase() === "ACTIVE" ||
+          s.status === "Active",
+      ),
     [services],
   );
 
@@ -193,7 +202,6 @@ export default function CreateOrderScreen() {
         customer_id: customerId,
         vehicle_id: vehicleId,
         staff_id: staffId,
-        service_status: serviceStatus,
         check_in_time: checkInTime,
         items: items.map((i) => ({
           service_id: i.service_id,
@@ -360,7 +368,9 @@ export default function CreateOrderScreen() {
 
         {/* ========== STAFF ========== */}
         <View className="mb-5">
-          <Text className="mb-2 text-sm font-semibold text-gray-900">Staff</Text>
+          <Text className="mb-2 text-sm font-semibold text-gray-900">
+            Staff
+          </Text>
           <View className="overflow-hidden rounded-xl border border-gray-200 bg-white">
             <Pressable
               className={`border-b border-gray-100 px-4 py-3.5 ${
@@ -492,37 +502,18 @@ export default function CreateOrderScreen() {
           </View>
         </View>
 
-        {/* ========== STATUS ========== */}
-        <View className="mb-5">
-          <Text className="mb-2 text-sm font-semibold text-gray-900">
-            Service Status
+        {/* ========== STATUS INFO ========== */}
+        <View className="mb-5 rounded-xl border border-blue-200 bg-blue-50 p-4">
+          <Text className="text-xs font-semibold text-blue-800">
+            Status Awal Pesanan
           </Text>
-          <View className="gap-2.5">
-            {statuses.map((status) => (
-              <Pressable
-                key={status}
-                className={`flex-row items-center justify-between rounded-xl border p-4 ${
-                  serviceStatus === status
-                    ? "border-gray-900 bg-gray-100"
-                    : "border-gray-200 bg-white"
-                }`}
-                onPress={() => setServiceStatus(status)}
-              >
-                <Text
-                  className={`text-sm ${
-                    serviceStatus === status
-                      ? "font-bold text-gray-900"
-                      : "text-gray-700"
-                  }`}
-                >
-                  {status}
-                </Text>
-                {serviceStatus === status && (
-                  <Check size={18} color="#111827" strokeWidth={3} />
-                )}
-              </Pressable>
-            ))}
-          </View>
+          <Text className="mt-1 text-sm text-blue-900 font-bold">
+            WAITING (Menunggu Konfirmasi)
+          </Text>
+          <Text className="mt-1 text-xs text-blue-700">
+            Setelah order dibuat, order dapat dikonfirmasi dan diproses
+            pembayarannya pada halaman detail order.
+          </Text>
         </View>
 
         {/* ========== CHECK IN TIME (Time Picker) ========== */}

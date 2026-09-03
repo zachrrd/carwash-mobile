@@ -1,12 +1,17 @@
 // =========================
-// STATUS
+// STATUS ENUMS
 // =========================
 
-export type OrderStatus = "Waiting" | "Washing" | "Completed";
+export type OrderStatus =
+  | "WAITING"
+  | "CONFIRMED"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED";
 
-export type PaymentStatus = "Unpaid" | "Paid";
+export type PaymentStatus = "UNPAID" | "PAID" | "REFUNDED" | "FAILED";
 
-export type PaymentMethod = "Cash" | "QRIS" | "Transfer";
+export type PaymentMethod = "CASH" | "TRANSFER" | "QRIS";
 
 // =========================
 // RELATED ENTITIES
@@ -16,6 +21,7 @@ export interface Customer {
   id: number;
   name: string;
   phone: string | null;
+  deleted_at?: string | null;
 }
 
 export interface Vehicle {
@@ -24,13 +30,15 @@ export interface Vehicle {
   brand: string;
   model: string;
   customer_id?: number;
+  deleted_at?: string | null;
 }
 
 export interface Staff {
   id: number;
   name: string;
   phone?: string | null;
-  status?: string | null;
+  status?: "ACTIVE" | "INACTIVE" | string | null;
+  deleted_at?: string | null;
 }
 
 export interface Service {
@@ -38,7 +46,9 @@ export interface Service {
   name: string;
   price: number | string;
   duration?: number;
-  status?: string | null;
+  status?: "ACTIVE" | "INACTIVE" | string | null;
+  image_url?: string | null;
+  deleted_at?: string | null;
 }
 
 // =========================
@@ -51,7 +61,6 @@ export interface OrderItem {
   service_id: number;
   qty: number | null;
   subtotal: string | number;
-
   services?: Service;
 }
 
@@ -65,10 +74,11 @@ export interface Invoice {
   order_id: number;
   total_amount: number | string;
   issued_at: string | null;
+  orders?: Order;
 }
 
 // =========================
-// ORDER (bentuk data dari Backend)
+// ORDER
 // =========================
 
 export interface Order {
@@ -93,6 +103,7 @@ export interface Order {
     change_amount?: string | number | null;
     payment_method: string;
     payment_date?: string | null;
+    payment_status?: string | null;
   }[];
   order_items?: OrderItem[];
   invoices?: Invoice[];
@@ -126,17 +137,15 @@ export interface OrderItemPayload {
 export interface CreateOrder {
   customer_id: number;
   vehicle_id: number;
-  staff_id: number | null;
-  service_status: OrderStatus;
-  check_in_time: string | null;
+  staff_id?: number | null;
+  check_in_time?: string | null;
   items: OrderItemPayload[];
 }
 
 export interface UpdateOrder {
-  customer_id: number;
-  vehicle_id: number;
-  staff_id: number | null;
-  service_status: OrderStatus;
-  check_in_time: string | null;
-  items: OrderItemPayload[];
+  customer_id?: number;
+  vehicle_id?: number;
+  staff_id?: number | null;
+  check_in_time?: string | null;
+  items?: OrderItemPayload[];
 }
