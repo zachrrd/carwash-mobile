@@ -1,28 +1,17 @@
 import { useState } from "react";
 import { updateOrder } from "@/services/order.service";
-import type { OrderStatus } from "@/types/order";
-
-export type UpdateOrderPayload = {
-  customer_id: number;
-  vehicle_id: number;
-  staff_id: number | null;
-  service_status: OrderStatus;
-  check_in_time: string | null;
-  items: {
-    service_id: number;
-    qty: number;
-  }[];
-};
+import type { UpdateOrder } from "@/types/order";
 
 export function useUpdateOrder() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const update = async (id: number, payload: UpdateOrderPayload) => {
+  const update = async (id: number, payload: UpdateOrder) => {
     try {
       setLoading(true);
       setError("");
-      await updateOrder(id, payload);
+      const response = await updateOrder(id, payload);
+      return response.data?.data ?? response.data;
     } catch (err: any) {
       console.log("UPDATE ORDER ERROR:", err);
       const message = err?.response?.data?.message || "Failed to update order";

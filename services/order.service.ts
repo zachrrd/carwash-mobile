@@ -6,7 +6,7 @@ export const getOrders = (page = 1, limit = 20, search?: string) => {
     params: {
       page,
       limit,
-      ...(search ? { search } : {}), 
+      ...(search ? { search } : {}),
     },
   });
 };
@@ -24,9 +24,17 @@ export const updateOrder = (id: number, data: UpdateOrder) => {
 };
 
 export const updateOrderStatus = (id: number, service_status: OrderStatus) => {
-  return api.put(`/orders/${id}`, {
+  return api.patch(`/orders/${id}/status`, {
     service_status,
   });
+};
+
+export const completeOrder = (id: number) => {
+  return api.patch(`/orders/${id}/complete`);
+};
+
+export const cancelOrder = (id: number) => {
+  return api.patch(`/orders/${id}/cancel`);
 };
 
 export const deleteOrder = (id: number) => {

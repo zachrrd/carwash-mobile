@@ -1,24 +1,33 @@
-import { useCallback, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   ActivityIndicator,
   Alert,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   RefreshControl,
   ScrollView,
   Text,
   TextInput,
   View,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
 } from "react-native";
-import { Plus, Search, X, RefreshCw } from "lucide-react-native";
+import { Plus, RefreshCw, Search, X } from "lucide-react-native";
 import OrderCard from "@/components/orders/OrderCard";
-import { getOrders, deleteOrder } from "@/services/order.service";
-import type { Order } from "@/types/order";
+import { deleteOrder, getOrders } from "@/services/order.service";
+import { connectSocket, socket } from "@/services/socket";
+import type { Order, OrderStatus } from "@/types/order";
 
-const filters = ["All", "Waiting", "Washing", "Completed"] as const;
-type Filter = (typeof filters)[number];
+const filters = [
+  { key: "ALL", label: "All" },
+  { key: "WAITING", label: "Waiting" },
+  { key: "CONFIRMED", label: "Confirmed" },
+  { key: "IN_PROGRESS", label: "In Progress" },
+  { key: "COMPLETED", label: "Completed" },
+  { key: "CANCELLED", label: "Cancelled" },
+] as const;
+
+type FilterKey = (typeof filters)[number]["key"];
 
 const PAGE_SIZE = 20;
 const SEARCH_LIMIT = 1000;
@@ -28,7 +37,7 @@ export default function OrdersScreen() {
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState<Filter>("All");
+  const [activeFilter, setActiveFilter] = useState<FilterKey>("ALL");
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -69,9 +78,8 @@ export default function OrdersScreen() {
         const limit = searchText.trim() ? SEARCH_LIMIT : PAGE_SIZE;
         const currentPage = searchText.trim() ? 1 : targetPage;
 
-        const response = await getOrders(currentPage, limit);
+        const response = await getOrders(currentPage, limit, searchText.trim() || undefined);
 
-        // Sesuaikan dengan struktur response backend kamu
         const payload = response.data?.data ?? response.data ?? {};
         const backendOrders: Order[] = Array.isArray(payload)
           ? payload
@@ -107,7 +115,6 @@ export default function OrdersScreen() {
           setHasMore(currentPage < totalPages);
           setPage(currentPage);
         } else {
-          // Fallback kalau backend tidak kirim pagination
           setHasMore(backendOrders.length >= limit);
           setPage(currentPage);
         }
@@ -116,7 +123,7 @@ export default function OrdersScreen() {
         setError(
           err?.response?.data?.message ||
             err?.message ||
-            "Failed to load orders",
+            "Gagal memuat daftar order",
         );
       } finally {
         setLoading(false);
@@ -127,6 +134,35 @@ export default function OrdersScreen() {
     },
     [],
   );
+
+  // Real-time socket listener for orders updates
+  useEffect(() => {
+    void connectSocket();
+
+    const handleStatusUpdate = (data: {
+      orderId: number;
+      serviceStatus: OrderStatus;
+      order?: Order;
+    }) => {
+      setOrders((prev) =>
+        prev.map((o) => {
+          if (o.id === data.orderId) {
+            return {
+              ...o,
+              ...(data.order ? data.order : { service_status: data.serviceStatus }),
+            };
+          }
+          return o;
+        }),
+      );
+    };
+
+    socket.on("order-status-updated", handleStatusUpdate);
+
+    return () => {
+      socket.off("order-status-updated", handleStatusUpdate);
+    };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -175,10 +211,21 @@ export default function OrdersScreen() {
   };
 
   const handleDelete = (order: Order) => {
-    if (order.payment_status === "Paid") {
+    const isPaid = (order.payment_status ?? "").toUpperCase() === "PAID";
+    const status = (order.service_status ?? "").toUpperCase();
+
+    if (isPaid) {
       Alert.alert(
         "Tidak bisa dihapus",
         "Order yang sudah dibayar tidak dapat dihapus.",
+      );
+      return;
+    }
+
+    if (status === "COMPLETED" || status === "CANCELLED") {
+      Alert.alert(
+        "Tidak bisa dihapus",
+        `Order dengan status ${status} tidak dapat dihapus.`,
       );
       return;
     }
@@ -212,8 +259,9 @@ export default function OrdersScreen() {
     const searchText = search.toLowerCase().trim();
 
     return orders.filter((order) => {
+      const currentStatus = (order.service_status ?? "WAITING").toUpperCase();
       const matchesFilter =
-        activeFilter === "All" || order.service_status === activeFilter;
+        activeFilter === "ALL" || currentStatus === activeFilter;
 
       if (!matchesFilter) return false;
 
@@ -246,7 +294,7 @@ export default function OrdersScreen() {
         <View className="flex-1 pr-3">
           <Text className="text-[28px] font-bold text-gray-900">Orders</Text>
           <Text className="mt-1 text-sm text-gray-500">
-            Manage customer orders and car wash services
+            Kelola pesanan customer & layanan pencucian
           </Text>
         </View>
 
@@ -260,7 +308,7 @@ export default function OrdersScreen() {
               targetPage: 1,
             });
           }}
-          className="h-11 w-11 items-center justify-center rounded-full bg-white"
+          className="h-11 w-11 items-center justify-center rounded-full bg-white border border-gray-200"
           disabled={refreshing}
         >
           {refreshing ? (
@@ -271,13 +319,13 @@ export default function OrdersScreen() {
         </Pressable>
       </View>
 
-      {/* Search */}
+      {/* Search Bar */}
       <View className="h-[50px] flex-row items-center rounded-xl border border-gray-200 bg-white px-[14px]">
         <Search size={20} color="#6B7280" />
         <TextInput
           value={search}
           onChangeText={handleSearchChange}
-          placeholder="Search order, customer..."
+          placeholder="Cari ID, nama customer, plat nomor..."
           placeholderTextColor="#9CA3AF"
           className="ml-[10px] flex-1 text-[15px] text-gray-900"
           returnKeyType="search"
@@ -289,33 +337,38 @@ export default function OrdersScreen() {
         )}
       </View>
 
-      {/* Filters */}
-      <View className="flex-row gap-2 py-[16px]">
-        {filters.map((filter) => {
-          const isActive = activeFilter === filter;
-          return (
-            <Pressable
-              key={filter}
-              onPress={() => setActiveFilter(filter)}
-              className={`min-w-0 flex-1 items-center justify-center rounded-full border px-2 py-[9px] ${
-                isActive
-                  ? "border-gray-900 bg-gray-900"
-                  : "border-gray-200 bg-white"
-              }`}
-            >
-              <Text
-                numberOfLines={1}
-                className={`text-[13px] ${
+      {/* Filter Horizontal Scroll */}
+      <View className="py-[14px]">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerClassName="flex-row gap-2 pr-4"
+        >
+          {filters.map((filter) => {
+            const isActive = activeFilter === filter.key;
+            return (
+              <Pressable
+                key={filter.key}
+                onPress={() => setActiveFilter(filter.key)}
+                className={`items-center justify-center rounded-full border px-4 py-[8px] ${
                   isActive
-                    ? "font-semibold text-white"
-                    : "font-medium text-gray-500"
+                    ? "border-gray-900 bg-gray-900"
+                    : "border-gray-200 bg-white"
                 }`}
               >
-                {filter}
-              </Text>
-            </Pressable>
-          );
-        })}
+                <Text
+                  className={`text-[13px] ${
+                    isActive
+                      ? "font-semibold text-white"
+                      : "font-medium text-gray-600"
+                  }`}
+                >
+                  {filter.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* Order List */}
@@ -345,13 +398,13 @@ export default function OrdersScreen() {
           <View className="items-center justify-center pt-20">
             <ActivityIndicator size="large" color="#111827" />
             <Text className="mt-4 text-sm text-gray-500">
-              Loading orders...
+              Memuat daftar order...
             </Text>
           </View>
         ) : error ? (
           <View className="items-center justify-center px-5 pt-20">
             <Text className="text-lg font-semibold text-red-600">
-              Failed to load orders
+              Gagal memuat order
             </Text>
             <Text className="mt-2 text-center text-sm text-gray-500">
               {error}
@@ -365,30 +418,32 @@ export default function OrdersScreen() {
               }
               className="mt-5 rounded-xl bg-gray-900 px-5 py-3"
             >
-              <Text className="font-semibold text-white">Try Again</Text>
+              <Text className="font-semibold text-white">Coba Lagi</Text>
             </Pressable>
           </View>
         ) : filteredOrders.length > 0 ? (
           <>
-            {filteredOrders.map((order) => (
-              <OrderCard
-                key={order.id}
-                order={order}
-                onPress={() => router.push(`/order/${order.id}`)}
-                onDelete={
-                  order.payment_status !== "Paid"
-                    ? () => handleDelete(order)
-                    : undefined
-                }
-              />
-            ))}
+            {filteredOrders.map((order) => {
+              const isPaid = (order.payment_status ?? "").toUpperCase() === "PAID";
+              const status = (order.service_status ?? "").toUpperCase();
+              const canDelete = !isPaid && status !== "COMPLETED" && status !== "CANCELLED";
+
+              return (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  onPress={() => router.push(`/order/${order.id}`)}
+                  onDelete={canDelete ? () => handleDelete(order) : undefined}
+                />
+              );
+            })}
 
             {/* Loading more indicator */}
             {loadingMore && (
               <View className="items-center py-6">
                 <ActivityIndicator size="small" color="#111827" />
                 <Text className="mt-2 text-xs text-gray-500">
-                  Loading more...
+                  Memuat lebih banyak...
                 </Text>
               </View>
             )}
@@ -403,10 +458,10 @@ export default function OrdersScreen() {
         ) : (
           <View className="items-center justify-center pt-20">
             <Text className="text-lg font-semibold text-gray-900">
-              No orders found
+              Tidak ada order ditemukan
             </Text>
             <Text className="mt-[6px] text-sm text-gray-500">
-              Try another search or filter.
+              Coba gunakan filter atau kata kunci pencarian yang lain.
             </Text>
           </View>
         )}
@@ -414,13 +469,13 @@ export default function OrdersScreen() {
 
       {/* FAB Create */}
       <Pressable
-        className="absolute bottom-5 right-5 h-14 w-14 items-center justify-center rounded-full bg-gray-900"
+        className="absolute bottom-6 right-6 h-14 w-14 items-center justify-center rounded-full bg-gray-900"
         style={{
           elevation: 5,
           shadowColor: "#000",
           shadowOffset: { width: 0, height: 3 },
-          shadowOpacity: 0.2,
-          shadowRadius: 4,
+          shadowOpacity: 0.25,
+          shadowRadius: 5,
         }}
         onPress={() => router.push("/order/create")}
       >

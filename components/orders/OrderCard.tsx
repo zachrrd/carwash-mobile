@@ -39,7 +39,8 @@ export default function OrderCard({
       })
     : "-";
 
-  const status = (order.service_status as any) ?? "Waiting";
+  const status = (order.service_status as any) ?? "WAITING";
+  const isPaid = (order.payment_status ?? "").toUpperCase() === "PAID";
 
   return (
     <Pressable
@@ -63,6 +64,21 @@ export default function OrderCard({
         </View>
 
         <View className="flex-row items-center gap-2">
+          {/* Payment Status Pill */}
+          <View
+            className={`rounded-full px-2.5 py-1 ${
+              isPaid ? "bg-emerald-50 border border-emerald-200" : "bg-amber-50 border border-amber-200"
+            }`}
+          >
+            <Text
+              className={`text-[10px] font-bold ${
+                isPaid ? "text-emerald-700" : "text-amber-700"
+              }`}
+            >
+              {isPaid ? "LUNAS" : "UNPAID"}
+            </Text>
+          </View>
+
           <OrderStatusBadge status={status} />
 
           {/* Tombol Delete (hanya muncul kalau onDelete ada) */}

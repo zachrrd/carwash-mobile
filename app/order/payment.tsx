@@ -28,21 +28,21 @@ const paymentMethods: {
   icon: typeof Banknote;
 }[] = [
   {
-    id: "Cash",
-    label: "Cash",
-    description: "Pay directly with cash",
+    id: "CASH",
+    label: "Cash (Tunai)",
+    description: "Bayar langsung secara tunai",
     icon: Banknote,
   },
   {
     id: "QRIS",
     label: "QRIS",
-    description: "Pay using QRIS",
+    description: "Bayar menggunakan QRIS",
     icon: QrCode,
   },
   {
-    id: "Transfer",
-    label: "Transfer",
-    description: "Bank transfer",
+    id: "TRANSFER",
+    label: "Bank Transfer",
+    description: "Transfer ke rekening bank",
     icon: CreditCard,
   },
 ];
@@ -56,7 +56,7 @@ export default function PaymentScreen() {
   const { order, loading: orderLoading, error: orderError } = useOrder(id);
   const { pay, loading: paying, error: payError } = useCreatePayment();
 
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("Cash");
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("CASH");
   const [amountReceived, setAmountReceived] = useState("");
 
   const total = useMemo(() => {
@@ -131,20 +131,42 @@ export default function PaymentScreen() {
     );
   }
 
-  if (order.payment_status === "Paid") {
+  const isPaid = (order.payment_status ?? "").toUpperCase() === "PAID";
+  const status = (order.service_status ?? "").toUpperCase();
+
+  if (isPaid) {
     return (
       <View className="flex-1 items-center justify-center bg-gray-50 px-5">
         <Text className="text-lg font-semibold text-gray-900">
           Order sudah dibayar
         </Text>
         <Text className="mt-2 text-center text-sm text-gray-500">
-          Pembayaran untuk order ini sudah selesai.
+          Pembayaran untuk order ini sudah selesai (Lunas).
         </Text>
         <Pressable
           onPress={() => router.back()}
           className="mt-4 rounded-xl bg-gray-900 px-5 py-3"
         >
-          <Text className="font-semibold text-white">Go Back</Text>
+          <Text className="font-semibold text-white">Kembali</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (status === "COMPLETED" || status === "CANCELLED") {
+    return (
+      <View className="flex-1 items-center justify-center bg-gray-50 px-5">
+        <Text className="text-lg font-semibold text-gray-900">
+          Tidak dapat melakukan pembayaran
+        </Text>
+        <Text className="mt-2 text-center text-sm text-gray-500">
+          Order dengan status {status} tidak dapat diproses pembayarannya.
+        </Text>
+        <Pressable
+          onPress={() => router.back()}
+          className="mt-4 rounded-xl bg-gray-900 px-5 py-3"
+        >
+          <Text className="font-semibold text-white">Kembali</Text>
         </Pressable>
       </View>
     );

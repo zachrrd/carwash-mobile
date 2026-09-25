@@ -43,8 +43,6 @@ type OrderItemForm = {
 
 const formatRupiah = (value: number) => `Rp ${value.toLocaleString("id-ID")}`;
 
-const statuses: OrderStatus[] = ["Waiting", "Washing", "Completed"];
-
 export default function UpdateOrderScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -125,7 +123,46 @@ export default function UpdateOrderScreen() {
     );
   }
 
-  if (order.payment_status === "Paid") {
+  const isPaid = (order.payment_status ?? "").toUpperCase() === "PAID";
+  const currentStatus = (order.service_status ?? "").toUpperCase();
+
+  if (currentStatus === "COMPLETED" || currentStatus === "CANCELLED") {
+    return (
+      <View className="flex-1 bg-gray-50">
+        <View
+          className="flex-row items-center justify-between border-b border-gray-200 bg-white px-5"
+          style={{ paddingTop: insets.top + 10, paddingBottom: 12 }}
+        >
+          <Pressable
+            className="h-10 w-10 items-center justify-center rounded-full"
+            onPress={() => router.back()}
+          >
+            <ArrowLeft size={22} color="#111827" />
+          </Pressable>
+          <Text className="text-lg font-bold text-gray-900">Edit Order</Text>
+          <View className="w-10" />
+        </View>
+
+        <View className="flex-1 items-center justify-center px-8">
+          <Text className="text-center text-xl font-bold text-gray-900">
+            Order tidak dapat diubah
+          </Text>
+          <Text className="mt-2 text-center text-sm text-gray-500">
+            Order dengan status {currentStatus} sudah final dan tidak dapat
+            diubah lagi.
+          </Text>
+          <Pressable
+            className="mt-6 h-12 items-center justify-center rounded-xl bg-gray-900 px-6"
+            onPress={() => router.back()}
+          >
+            <Text className="text-sm font-bold text-white">Kembali</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  if (isPaid) {
     return (
       <View className="flex-1 bg-gray-50">
         <View
@@ -147,7 +184,8 @@ export default function UpdateOrderScreen() {
             Order sudah dibayar
           </Text>
           <Text className="mt-2 text-center text-sm text-gray-500">
-            Order yang sudah dibayar tidak dapat diubah.
+            Order yang sudah dibayar tidak dapat mengubah customer, kendaraan,
+            atau layanan. Silakan ubah penugasan staff langsung di detail order.
           </Text>
           <Pressable
             className="mt-6 h-12 items-center justify-center rounded-xl bg-gray-900 px-6"
@@ -202,9 +240,6 @@ function OrderForm({
     order.vehicle_id ?? null,
   );
   const [staffId, setStaffId] = useState<number | null>(order.staff_id ?? null);
-  const [serviceStatus, setServiceStatus] = useState<OrderStatus>(
-    (order.service_status as OrderStatus) ?? "Waiting",
-  );
   const [checkInTime, setCheckInTime] = useState(order.check_in_time ?? "");
   const [items, setItems] = useState<OrderItemForm[]>(
     order.order_items?.map((item: any) => ({
@@ -241,12 +276,24 @@ function OrderForm({
   }, [vehicles, customerId]);
 
   const activeStaffs = useMemo(
-    () => staffs.filter((staff) => staff.status === "Active"),
+    () =>
+      staffs.filter(
+        (staff) =>
+          !staff.status ||
+          staff.status.toUpperCase() === "ACTIVE" ||
+          staff.status === "Active",
+      ),
     [staffs],
   );
 
   const activeServices = useMemo(
-    () => services.filter((service) => service.status === "Active"),
+    () =>
+      services.filter(
+        (service) =>
+          !service.status ||
+          service.status.toUpperCase() === "ACTIVE" ||
+          service.status === "Active",
+      ),
     [services],
   );
 
@@ -287,16 +334,11 @@ function OrderForm({
     if (existingItem) {
       setItems((previous) =>
         previous.map((item) =>
-          item.service_id === serviceId
-            ? { ...item, qty: item.qty + 1 }
-            : item,
+          item.service_id === serviceId ? { ...item, qty: item.qty + 1 } : item,
         ),
       );
     } else {
-      setItems((previous) => [
-        ...previous,
-        { service_id: serviceId, qty: 1 },
-      ]);
+      setItems((previous) => [...previous, { service_id: serviceId, qty: 1 }]);
     }
     setSelectedServiceId("");
   };
@@ -341,7 +383,6 @@ function OrderForm({
         customer_id: customerId,
         vehicle_id: vehicleId,
         staff_id: staffId,
-        service_status: serviceStatus,
         check_in_time: checkInTime,
         items: items.map((item) => ({
           service_id: item.service_id,
@@ -499,7 +540,9 @@ function OrderForm({
 
         {/* ========== STAFF ========== */}
         <View className="mb-5">
-          <Text className="mb-2 text-sm font-semibold text-gray-900">Staff</Text>
+          <Text className="mb-2 text-sm font-semibold text-gray-900">
+            Staff
+          </Text>
           <View className="overflow-hidden rounded-xl border border-gray-200 bg-white">
             <Pressable
               className={`border-b border-gray-100 px-4 py-3.5 ${
@@ -635,39 +678,6 @@ function OrderForm({
             <Text className="text-xl font-bold text-gray-900">
               {formatRupiah(total)}
             </Text>
-          </View>
-        </View>
-
-        {/* ========== SERVICE STATUS ========== */}
-        <View className="mb-5">
-          <Text className="mb-2 text-sm font-semibold text-gray-900">
-            Service Status
-          </Text>
-          <View className="gap-2.5">
-            {statuses.map((status) => (
-              <Pressable
-                key={status}
-                className={`flex-row items-center justify-between rounded-xl border p-4 ${
-                  serviceStatus === status
-                    ? "border-gray-900 bg-gray-100"
-                    : "border-gray-200 bg-white"
-                }`}
-                onPress={() => setServiceStatus(status)}
-              >
-                <Text
-                  className={`text-sm ${
-                    serviceStatus === status
-                      ? "font-bold text-gray-900"
-                      : "text-gray-700"
-                  }`}
-                >
-                  {status}
-                </Text>
-                {serviceStatus === status && (
-                  <Check size={18} color="#111827" strokeWidth={3} />
-                )}
-              </Pressable>
-            ))}
           </View>
         </View>
 

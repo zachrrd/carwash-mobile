@@ -1,7 +1,10 @@
 {
-  "name": "mobile",
+  "name": "carwash-mobile",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "description": "Floor management & cashier mobile app for Car Wash Management System built with React Native and Expo",
+  "author": "Zacharia",
+  "license": "MIT",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
@@ -52,6 +55,7 @@
     "react-native-toast-message": "^2.4.0",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.10.1",
+    "socket.io-client": "^4.8.3",
     "tailwindcss": "^3.4.19",
     "typescript": "~6.0.3"
   },
