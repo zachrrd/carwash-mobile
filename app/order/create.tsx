@@ -13,7 +13,6 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import {
   ArrowLeft,
   Plus,
-  Minus,
   Trash2,
   Check,
   Search,
@@ -130,7 +129,7 @@ export default function CreateOrderScreen() {
     return items.reduce((sum, item) => {
       const service = services.find((s) => s.id === item.service_id);
       if (!service) return sum;
-      return sum + Number(service.price) * item.qty;
+      return sum + Number(service.price);
     }, 0);
   }, [items, services]);
 
@@ -157,22 +156,11 @@ export default function CreateOrderScreen() {
 
     const exist = items.find((i) => i.service_id === sid);
     if (exist) {
-      setItems((prev) =>
-        prev.map((i) => (i.service_id === sid ? { ...i, qty: i.qty + 1 } : i)),
-      );
+      showError("Service sudah ditambahkan.");
     } else {
       setItems((prev) => [...prev, { service_id: sid, qty: 1 }]);
     }
     setSelectedServiceId("");
-  };
-
-  const updateQty = (serviceId: number, amount: number) => {
-    setItems((prev) =>
-      prev.map((i) => {
-        if (i.service_id !== serviceId) return i;
-        return { ...i, qty: Math.max(1, i.qty + amount) };
-      }),
-    );
   };
 
   const removeService = (serviceId: number) => {
@@ -205,7 +193,7 @@ export default function CreateOrderScreen() {
         check_in_time: checkInTime,
         items: items.map((i) => ({
           service_id: i.service_id,
-          qty: i.qty,
+          qty: 1,
         })),
       });
 
@@ -449,7 +437,7 @@ export default function CreateOrderScreen() {
           {items.map((item) => {
             const service = services.find((s) => s.id === item.service_id);
             if (!service) return null;
-            const subtotal = Number(service.price) * item.qty;
+            const subtotal = Number(service.price);
 
             return (
               <View
@@ -461,26 +449,8 @@ export default function CreateOrderScreen() {
                     {service.name}
                   </Text>
                   <Text className="mt-0.5 text-xs text-gray-500">
-                    {formatRupiah(Number(service.price))} / service
+                    {formatRupiah(Number(service.price))} · Qty 1
                   </Text>
-                </View>
-
-                <View className="mr-2 flex-row items-center rounded-lg border border-gray-200">
-                  <Pressable
-                    className="h-8 w-8 items-center justify-center"
-                    onPress={() => updateQty(item.service_id, -1)}
-                  >
-                    <Minus size={14} color="#111827" />
-                  </Pressable>
-                  <Text className="w-7 text-center text-sm font-medium">
-                    {item.qty}
-                  </Text>
-                  <Pressable
-                    className="h-8 w-8 items-center justify-center"
-                    onPress={() => updateQty(item.service_id, 1)}
-                  >
-                    <Plus size={14} color="#111827" />
-                  </Pressable>
                 </View>
 
                 <Text className="mr-2 w-18 text-right text-sm font-semibold">

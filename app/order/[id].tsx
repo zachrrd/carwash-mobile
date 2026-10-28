@@ -734,7 +734,10 @@ export default function OrderDetailScreen() {
                   </Text>
                   <Text className="mt-1 text-xs text-gray-400">
                     Qty: {item.qty} ×{" "}
-                    {formatRupiah(Number(item.services?.price ?? 0))}
+                    {formatRupiah(
+                      Number(item.subtotal) / (Number(item.qty) || 1),
+                    )}{" "}
+                    (harga saat order)
                   </Text>
                 </View>
 

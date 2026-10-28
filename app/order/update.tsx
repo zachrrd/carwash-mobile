@@ -13,7 +13,6 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import {
   ArrowLeft,
   Plus,
-  Minus,
   Trash2,
   Check,
   Search,
@@ -244,9 +243,10 @@ function OrderForm({
   const [items, setItems] = useState<OrderItemForm[]>(
     order.order_items?.map((item: any) => ({
       service_id: Number(item.service_id),
-      qty: Number(item.qty ?? 1),
+      qty: 1,
     })) ?? [],
   );
+  const [itemsChanged, setItemsChanged] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
 
@@ -303,7 +303,7 @@ function OrderForm({
         (service) => service.id === item.service_id,
       );
       if (!service) return sum;
-      return sum + Number(service.price) * item.qty;
+      return sum + Number(service.price);
     }, 0);
   }, [items, services]);
 
@@ -332,27 +332,18 @@ function OrderForm({
     const existingItem = items.find((item) => item.service_id === serviceId);
 
     if (existingItem) {
-      setItems((previous) =>
-        previous.map((item) =>
-          item.service_id === serviceId ? { ...item, qty: item.qty + 1 } : item,
-        ),
-      );
+      showError("Service sudah ditambahkan.");
     } else {
       setItems((previous) => [...previous, { service_id: serviceId, qty: 1 }]);
+      setItemsChanged(true);
     }
     setSelectedServiceId("");
   };
 
-  const updateQty = (serviceId: number, amount: number) => {
-    setItems((previous) =>
-      previous.map((item) => {
-        if (item.service_id !== serviceId) return item;
-        return { ...item, qty: Math.max(1, item.qty + amount) };
-      }),
-    );
-  };
-
   const removeService = (serviceId: number) => {
+    if (items.some((item) => item.service_id === serviceId)) {
+      setItemsChanged(true);
+    }
     setItems((previous) =>
       previous.filter((item) => item.service_id !== serviceId),
     );
@@ -384,10 +375,12 @@ function OrderForm({
         vehicle_id: vehicleId,
         staff_id: staffId,
         check_in_time: checkInTime,
-        items: items.map((item) => ({
-          service_id: item.service_id,
-          qty: item.qty,
-        })),
+        ...(itemsChanged && {
+          items: items.map((item) => ({
+            service_id: item.service_id,
+            qty: 1,
+          })),
+        }),
       });
 
       showSuccess("Order berhasil di update");
@@ -628,7 +621,7 @@ function OrderForm({
               (service) => service.id === item.service_id,
             );
             if (!service) return null;
-            const subtotal = Number(service.price) * item.qty;
+            const subtotal = Number(service.price);
 
             return (
               <View
@@ -640,26 +633,8 @@ function OrderForm({
                     {service.name}
                   </Text>
                   <Text className="mt-0.5 text-xs text-gray-500">
-                    {formatRupiah(Number(service.price))} / service
+                    {formatRupiah(Number(service.price))} · Qty 1
                   </Text>
-                </View>
-
-                <View className="mr-2 flex-row items-center rounded-lg border border-gray-200">
-                  <Pressable
-                    className="h-8 w-8 items-center justify-center"
-                    onPress={() => updateQty(item.service_id, -1)}
-                  >
-                    <Minus size={14} color="#111827" />
-                  </Pressable>
-                  <Text className="w-7 text-center text-sm font-medium">
-                    {item.qty}
-                  </Text>
-                  <Pressable
-                    className="h-8 w-8 items-center justify-center"
-                    onPress={() => updateQty(item.service_id, 1)}
-                  >
-                    <Plus size={14} color="#111827" />
-                  </Pressable>
                 </View>
 
                 <Text className="mr-2 w-[72px] text-right text-sm font-semibold">
